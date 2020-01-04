@@ -5,12 +5,17 @@ var ctx = canvas.getContext("2d");
 // * Boids
 var boidSize = 20;
 var boidAngle = 0.2 * Math.PI;
-var boidViewingAngle = 0.75 * Math.PI;
+var boidViewingAngle = 0.8 * Math.PI; // 0.8
 var boidViewingDist = 100;
 var boidMaxTurn = 0.05;
 var boidMaxSpeed = 0.5;
 
 var marg = 10;
+
+var separationWeight = 0.15; // 0.1
+var alignmentWeight = 0.2; // 0.1
+var cohesionWeight = 0.25; // 0.1
+
 // * Wall
 var wallRadius = 5;
 
@@ -18,7 +23,6 @@ var wallRadius = 5;
 // --- Init. variables ---
 var mouseX = 0;
 var mouseY = 0;
-var walls = [{x:100, y:50}];
 var boids = [];
 
 
@@ -29,18 +33,6 @@ canvas.onmousemove = function(e) {
 	mouseX = e.clientX;
 	mouseY = e.clientY;
 };
-
-
-function drawWalls() {
-	for (i = 0; i < walls.length; i++) {
-		var w = walls[i]
-		ctx.beginPath();
-		ctx.arc(w.x,w.y, wallRadius,0,Math.PI*2);
-		ctx.fillStyle = "red";
-		ctx.fill();
-		ctx.closePath();
-	}
-}
 
 function drawBoid(boid) {
 	var x = boid.x;
@@ -99,6 +91,16 @@ function wallLoop(b) {
 
 }
 
+function normalizeRad(angle) {
+	if (angle > Math.PI) {
+		return angle - 2 * Math.PI
+	}
+	if (angle < -Math.PI) {
+		return angle + 2 * Math.PI
+	}
+	return angle;
+}
+
 function detectNeighbors(boid) {
 	var neighbors = [];
 	for (var i = 0; i < boids.length; i++) {
@@ -108,8 +110,7 @@ function detectNeighbors(boid) {
 			continue
 		}
 		
-		// TODO add angle
-		if (Math.sqrt( Math.pow(b1.x-b2.x,2) + Math.pow(b1.y-b2.y,2) ) < boidViewingDist) {
+		if (Math.sqrt( Math.pow(b1.x-b2.x,2) + Math.pow(b1.y-b2.y,2) ) < boidViewingDist && Math.abs(normalizeRad(-Math.atan2(b2.y - b1.y, b2.x - b1.x) - b1.angle)) < boidViewingAngle) {
 			neighbors.push(b2);
 		}
 		
@@ -127,6 +128,62 @@ function drawNeighbors(boid, neighbors) {
 	}
 }
 
+function separation(boid, neighbors) {
+	if (neighbors.length == 0) return 0;
+	
+	var x = 0;
+	var y = 0;
+	neighbors.forEach(elem => {
+		var angle = Math.atan2(-elem.y + boid.y,elem.x - boid.x);
+		var dist = Math.sqrt(Math.pow(elem.x - boid.x,2) + Math.pow(elem.y - boid.y,2));
+		x -= Math.cos(angle) * (boidViewingDist - dist) / boidViewingDist;
+		y += Math.sin(angle) * (boidViewingDist - dist) / boidViewingDist;
+	})
+	
+	var angle = -normalizeRad(boid.angle - Math.atan2(-y,x));
+	var dist = Math.sqrt(Math.pow(x - boid.x,2) + Math.pow(y - boid.y,2));
+	var weight = dist > boidViewingDist ? 1 : dist / boidViewingDist;
+	// TODO Maybe add angle weigth
+	var dir = angle > 0 ? 1 : -1;
+	return boidMaxTurn * dir * weight;
+}
+
+function alignment(boid, neighbors) {
+	if (neighbors.length == 0) return 0;
+	var angleSum = 0;
+	neighbors.forEach(elem => {
+		// Get pos. angle
+		var angle = elem.angle;
+		if(elem.angle < 0) angle = elem.angle + 2*Math.PI;
+		angleSum += angle;
+	})
+	var averageAngle = normalizeRad(angleSum / neighbors.length);
+	var diffAngle = normalizeRad(boid.angle - averageAngle);
+	var weight = Math.abs(diffAngle) > 0.2 * Math.PI ? 1 : Math.abs(diffAngle) / (0.2 * Math.PI); 
+	var dir = diffAngle > 0 ? -1 : 1;
+	return boidMaxTurn * dir * weight;
+}
+
+function cohesion(boid, neighbors) {
+	if (neighbors.length == 0) return 0;
+
+	var nXCords = [];
+	var nYCords = [];
+	for (var i = 0; i < neighbors.length; i++) {
+		var n = neighbors[i];
+		nXCords.push(n.x);
+		nYCords.push(n.y);
+	}
+	// Get average position of neighbors
+	var x = nXCords.reduce((a, b) => a + b, 0) / nXCords.length;
+	var y = nYCords.reduce((a, b) => a + b, 0) / nYCords.length;
+	
+	var angle = normalizeRad(-Math.atan2(y - boid.y, x - boid.x) - boid.angle)
+	var dir = angle > 0 ? 1 : -1;
+	var weight = Math.abs(angle) / boidViewingAngle;
+	return boidMaxTurn * dir * weight;
+}
+
 function updateBoids() {
 	for (var i = 0; i < boids.length; i++) {
 		var b = boids[i];
@@ -135,15 +192,17 @@ function updateBoids() {
 		
 		var turnAmount = 0;
 		var neigh = detectNeighbors(b);
-		drawNeighbors(b,neigh);
-		//separation(b);
-		//alignment(b);
-		//cohesion(b);
-		
+
+		//drawNeighbors(b,neigh);
+		turnAmount += separation(b, neigh) * separationWeight;
+		turnAmount += alignment(b, neigh) * alignmentWeight;
+		turnAmount += cohesion(b, neigh) * cohesionWeight;
+
 		if (turnAmount > boidMaxTurn) turnAmount = boidMaxTurn;
 		if (turnAmount < -boidMaxTurn) turnAmount = -boidMaxTurn;
 		
 		b.angle += turnAmount;
+		b.angle = normalizeRad(b.angle);
 
 		b.x = b.x + boidMaxSpeed * Math.cos(b.angle);
 		b.y = b.y - boidMaxSpeed * Math.sin(b.angle);
@@ -153,14 +212,15 @@ function updateBoids() {
 function draw() {
 	ctx.clearRect(0, 0, canvas.width, canvas.height);
 	updateBoids();
-	//drawWalls();
 	drawBoids();
 }
 
-for (var i = 0; i < 50; i++) {
+
+for (var i = 0; i < 30; i++) {
 	boids.push(new Boid(Math.random() * canvas.width, Math.random() * canvas.height
 						, Math.random() * Math.PI * 2))
 }
+
 
 var iId = setInterval(draw,10);
 
