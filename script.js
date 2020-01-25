@@ -1,23 +1,25 @@
 var canvas = document.getElementById("myCanvas");
 var ctx = canvas.getContext("2d");
+ctx.canvas.width  = window.innerWidth;
+ctx.canvas.height = window.innerHeight;
 
 // --- Parameters ---
 // * Boids
-var boidSize = 20;
+var boidSize = 15; // 20
 var boidAngle = 0.2 * Math.PI;
 var boidViewingAngle = 0.8 * Math.PI; // 0.8
 var boidViewingDist = 100;
 var boidMaxTurn = 0.05;
-var boidMaxSpeed = 0.5;
+var boidMaxSpeed = 1; // 0.5
 
+// Margins for the wall-loop
 var marg = 10;
 
-var separationWeight = 0.15; // 0.1
-var alignmentWeight = 0.2; // 0.1
-var cohesionWeight = 0.25; // 0.1
 
-// * Wall
-var wallRadius = 5;
+var s = 1.5; // Scaler
+var separationWeight = 0.15 * s; // 0.15
+var alignmentWeight = 3*0.2 * s; // 0.2
+var cohesionWeight = 0.25 * s; // 0.25
 
 
 // --- Init. variables ---
@@ -88,7 +90,6 @@ function wallLoop(b) {
 	if (b.y < -marg) {
 		b.y = canvas.height+marg;
 	}
-
 }
 
 function normalizeRad(angle) {
@@ -142,8 +143,7 @@ function separation(boid, neighbors) {
 	
 	var angle = -normalizeRad(boid.angle - Math.atan2(-y,x));
 	var dist = Math.sqrt(Math.pow(x - boid.x,2) + Math.pow(y - boid.y,2));
-	var weight = dist > boidViewingDist ? 1 : dist / boidViewingDist;
-	// TODO Maybe add angle weigth
+	var weight = dist > boidViewingDist ? 1 : (boidViewingDist - dist) / boidViewingDist;
 	var dir = angle > 0 ? 1 : -1;
 	return boidMaxTurn * dir * weight;
 }
@@ -216,7 +216,7 @@ function draw() {
 }
 
 
-for (var i = 0; i < 30; i++) {
+for (var i = 0; i < 100; i++) {
 	boids.push(new Boid(Math.random() * canvas.width, Math.random() * canvas.height
 						, Math.random() * Math.PI * 2))
 }
