@@ -142,10 +142,13 @@ function separation(boid, neighbors) {
 		y += Math.sin(angle) * (boidViewingDist - dist) / boidViewingDist;
 	})
 	
-	var angle = -normalizeRad(boid.angle - Math.atan2(-y,x));
+	var angle = -normalizeRad(boid.angle - Math.atan2(-y,x)) * 0.05;
 	var dist = Math.sqrt(Math.pow(x,2) + Math.pow(y,2));
 	var weight = dist > 1 ? 1 : dist;
 	
+	ctx.fill();
+	ctx.stroke();
+
 	return [angle, weight]; // boidMaxTurn * dir * weight;
 }
 
@@ -214,7 +217,7 @@ function updateBoids() {
 				accumilator += weight;
 			}
 			
-			if(weight != 0) angleSum += (angle - angleSum) * weight;
+			if(weight != 0) angleSum +=  (angle - angleSum) * weight;
 
 			if (accumilator > 1) break;
 		}
@@ -237,24 +240,9 @@ function draw() {
 }
 
 
-for (var i = 0; i < 100; i++) {
+for (var i = 0; i < 200; i++) {
 	boids.push(new Boid(Math.random() * canvas.width, Math.random() * canvas.height
 						, Math.random() * Math.PI * 2))
 }
 
-boids.push(new Boid(10,510,0));
-boids.push(new Boid(400,490,-Math.PI));
-
 var iId = setInterval(draw,10);
-
-
-
-
-
-
-
-
-
-
-
-
