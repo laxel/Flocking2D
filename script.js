@@ -15,13 +15,6 @@ var boidMaxSpeed = 0.75; // 0.5
 // Margins for the wall-loop
 var marg = 10;
 
-
-var s = 1.5; // Scaler
-var separationWeight = 0.15 * s; // 0.15
-var alignmentWeight = 3*0.2 * s; // 0.2
-var cohesionWeight = 0.25 * s; // 0.25
-
-
 // --- Init. variables ---
 var mouseX = 0;
 var mouseY = 0;
@@ -40,9 +33,6 @@ function drawBoid(boid) {
 	var x = boid.x;
 	var y = boid.y;
 	var angle = boid.angle;
-	
-	//angle = -Math.atan2(mouseY - y, mouseX - x);
-	//boid.angle = angle;
 
 	var x1 = x + (boidSize / 2) * Math.cos(angle);
 	var y1 = y - (boidSize / 2) * Math.sin(angle);
@@ -149,7 +139,7 @@ function separation(boid, neighbors) {
 	ctx.fill();
 	ctx.stroke();
 
-	return [angle, weight]; // boidMaxTurn * dir * weight;
+	return [angle, weight];
 }
 
 function alignment(boid, neighbors) {
@@ -164,7 +154,7 @@ function alignment(boid, neighbors) {
 	var averageAngle = normalizeRad(angleSum / neighbors.length);
 	var diffAngle = normalizeRad(boid.angle - averageAngle);
 	var weight = Math.abs(diffAngle) > 0.2 * Math.PI ? 1 : Math.abs(diffAngle) / (0.2 * Math.PI); 
-	return [-diffAngle, weight]; //boidMaxTurn * dir * weight;
+	return [-diffAngle, weight];
 }
 
 function cohesion(boid, neighbors) {
@@ -183,7 +173,7 @@ function cohesion(boid, neighbors) {
 	
 	var angle = normalizeRad(-Math.atan2(y - boid.y, x - boid.x) - boid.angle)
 	var weight = Math.abs(angle) / boidViewingAngle;
-	return [angle,weight]; //boidMaxTurn * dir * weight;
+	return [angle,weight];
 }
 
 function updateBoids() {
@@ -240,7 +230,7 @@ function draw() {
 }
 
 
-for (var i = 0; i < 200; i++) {
+for (var i = 0; i < 100; i++) {
 	boids.push(new Boid(Math.random() * canvas.width, Math.random() * canvas.height
 						, Math.random() * Math.PI * 2))
 }
