@@ -9,18 +9,11 @@ var boidSize = 15; // 20
 var boidAngle = 0.2 * Math.PI;
 var boidViewingAngle = 0.8 * Math.PI; // 0.8
 var boidViewingDist = 100;
-var boidMaxTurn = 0.05;
-var boidMaxSpeed = 1; // 0.5
+var boidMaxTurn = 0.05; // 0.05
+var boidMaxSpeed = 0.75; // 0.5
 
 // Margins for the wall-loop
 var marg = 10;
-
-
-var s = 1.5; // Scaler
-var separationWeight = 0.15 * s; // 0.15
-var alignmentWeight = 3*0.2 * s; // 0.2
-var cohesionWeight = 0.25 * s; // 0.25
-
 
 // --- Init. variables ---
 var mouseX = 0;
@@ -40,9 +33,6 @@ function drawBoid(boid) {
 	var x = boid.x;
 	var y = boid.y;
 	var angle = boid.angle;
-	
-	//angle = -Math.atan2(mouseY - y, mouseX - x);
-	//boid.angle = angle;
 
 	var x1 = x + (boidSize / 2) * Math.cos(angle);
 	var y1 = y - (boidSize / 2) * Math.sin(angle);
@@ -111,7 +101,8 @@ function detectNeighbors(boid) {
 			continue
 		}
 		
-		if (Math.sqrt( Math.pow(b1.x-b2.x,2) + Math.pow(b1.y-b2.y,2) ) < boidViewingDist && Math.abs(normalizeRad(-Math.atan2(b2.y - b1.y, b2.x - b1.x) - b1.angle)) < boidViewingAngle) {
+		if (Math.sqrt( Math.pow(b1.x-b2.x,2) + Math.pow(b1.y-b2.y,2) ) < boidViewingDist &&
+			Math.abs(normalizeRad(-Math.atan2(b2.y - b1.y, b2.x - b1.x) - b1.angle)) < boidViewingAngle) {
 			neighbors.push(b2);
 		}
 		
@@ -130,7 +121,7 @@ function drawNeighbors(boid, neighbors) {
 }
 
 function separation(boid, neighbors) {
-	if (neighbors.length == 0) return 0;
+	if (neighbors.length == 0) return [0,0];
 	
 	var x = 0;
 	var y = 0;
@@ -141,18 +132,21 @@ function separation(boid, neighbors) {
 		y += Math.sin(angle) * (boidViewingDist - dist) / boidViewingDist;
 	})
 	
-	var angle = -normalizeRad(boid.angle - Math.atan2(-y,x));
-	var dist = Math.sqrt(Math.pow(x - boid.x,2) + Math.pow(y - boid.y,2));
-	var weight = dist > boidViewingDist ? 1 : (boidViewingDist - dist) / boidViewingDist;
-	var dir = angle > 0 ? 1 : -1;
-	return boidMaxTurn * dir * weight;
+	var angle = -normalizeRad(boid.angle - Math.atan2(-y,x)) * 0.05;
+	var dist = Math.sqrt(Math.pow(x,2) + Math.pow(y,2));
+	var weight = dist > 1 ? 1 : dist;
+	
+	ctx.fill();
+	ctx.stroke();
+
+	return [angle, weight];
 }
 
 function alignment(boid, neighbors) {
-	if (neighbors.length == 0) return 0;
+	if (neighbors.length == 0) return [0,0];
+
 	var angleSum = 0;
 	neighbors.forEach(elem => {
-		// Get pos. angle
 		var angle = elem.angle;
 		if(elem.angle < 0) angle = elem.angle + 2*Math.PI;
 		angleSum += angle;
@@ -160,12 +154,11 @@ function alignment(boid, neighbors) {
 	var averageAngle = normalizeRad(angleSum / neighbors.length);
 	var diffAngle = normalizeRad(boid.angle - averageAngle);
 	var weight = Math.abs(diffAngle) > 0.2 * Math.PI ? 1 : Math.abs(diffAngle) / (0.2 * Math.PI); 
-	var dir = diffAngle > 0 ? -1 : 1;
-	return boidMaxTurn * dir * weight;
+	return [-diffAngle, weight];
 }
 
 function cohesion(boid, neighbors) {
-	if (neighbors.length == 0) return 0;
+	if (neighbors.length == 0) return [0,0];
 
 	var nXCords = [];
 	var nYCords = [];
@@ -179,9 +172,8 @@ function cohesion(boid, neighbors) {
 	var y = nYCords.reduce((a, b) => a + b, 0) / nYCords.length;
 	
 	var angle = normalizeRad(-Math.atan2(y - boid.y, x - boid.x) - boid.angle)
-	var dir = angle > 0 ? 1 : -1;
 	var weight = Math.abs(angle) / boidViewingAngle;
-	return boidMaxTurn * dir * weight;
+	return [angle,weight];
 }
 
 function updateBoids() {
@@ -194,18 +186,40 @@ function updateBoids() {
 		var neigh = detectNeighbors(b);
 
 		//drawNeighbors(b,neigh);
-		turnAmount += separation(b, neigh) * separationWeight;
-		turnAmount += alignment(b, neigh) * alignmentWeight;
-		turnAmount += cohesion(b, neigh) * cohesionWeight;
 
-		if (turnAmount > boidMaxTurn) turnAmount = boidMaxTurn;
-		if (turnAmount < -boidMaxTurn) turnAmount = -boidMaxTurn;
+		var sep = separation(b, neigh);
+		var ali = alignment(b, neigh);
+		var coh = cohesion(b, neigh);
+
+		var rules = [sep,ali,coh];
+		var accumilator = 0;
+		var angleSum = 0;
+		// Calculate the accumilated angle from the three rules
+		for (var j = 0; j < rules.length; j++) {
+			var angle = rules[j][0];
+			var weight = rules[j][1];
+			
+			// Trim weight if accumilator gets full, also prepare to break.
+			if (accumilator + weight >= 1) {
+				weight = 1 - accumilator;
+				accumilator += weight;
+			} else {
+				accumilator += weight;
+			}
+			
+			if(weight != 0) angleSum +=  (angle - angleSum) * weight;
+
+			if (accumilator > 1) break;
+		}
+
+		if (angleSum > boidMaxTurn) angleSum = boidMaxTurn;
+		if (angleSum < -boidMaxTurn) angleSum = -boidMaxTurn;
 		
-		b.angle += turnAmount;
+		b.angle += angleSum;
 		b.angle = normalizeRad(b.angle);
 
-		b.x = b.x + boidMaxSpeed * Math.cos(b.angle);
-		b.y = b.y - boidMaxSpeed * Math.sin(b.angle);
+		b.x += boidMaxSpeed * Math.cos(b.angle);
+		b.y -= boidMaxSpeed * Math.sin(b.angle);
 	}
 }
 
@@ -221,17 +235,4 @@ for (var i = 0; i < 100; i++) {
 						, Math.random() * Math.PI * 2))
 }
 
-
 var iId = setInterval(draw,10);
-
-
-
-
-
-
-
-
-
-
-
-
