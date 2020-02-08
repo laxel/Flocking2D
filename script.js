@@ -135,9 +135,6 @@ function separation(boid, neighbors) {
 	var angle = -normalizeRad(boid.angle - Math.atan2(-y,x)) * 0.05;
 	var dist = Math.sqrt(Math.pow(x,2) + Math.pow(y,2));
 	var weight = dist > 1 ? 1 : dist;
-	
-	ctx.fill();
-	ctx.stroke();
 
 	return [angle, weight];
 }
@@ -182,7 +179,6 @@ function updateBoids() {
 		
 		wallLoop(b);
 		
-		var turnAmount = 0;
 		var neigh = detectNeighbors(b);
 
 		//drawNeighbors(b,neigh);
