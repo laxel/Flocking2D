@@ -12,7 +12,7 @@ var boidViewingDist = 100;
 var boidMaxTurn = 0.05; // 0.05
 var boidMaxSpeed = 0.75; // 0.5
 
-// Margins for the wall-loop
+// Margins for the wall-looparound
 var marg = 10;
 
 // --- Init. variables ---
@@ -207,7 +207,7 @@ function cohesion(boid, neighbors) {
 function collision(b) {
 
 	for (var i = 0; i < 75; i++) {
-		var angle = b.angle + Math.PI * 0.01 * i * (i % 2 == 0 ? -1 : 1); 
+		var angle = b.angle + Math.PI * 0.01 * i * (i % 2 == 0 ? 1 : -1); 
 		angle = normalizeRad(angle)
 		var x2 = b.x + Math.cos(angle)*boidViewingDist;
 		var y2 = b.y - Math.sin(angle)*boidViewingDist;
@@ -221,21 +221,23 @@ function collision(b) {
 				break;
 			}
 		}
-
 		if(!collisionDetected && i == 0) {
 			return [0,0];
 		}
 
+		
+
 		if(!collisionDetected) {
-			angle += angle > 0 ? 0.2*Math.PI : -0.2*Math.PI;
+			// Draw selected ray
+			/*
 			ctx.beginPath();
 			ctx.moveTo(b.x,b.y);
 			ctx.lineTo(x2, y2);
 			ctx.stroke();
-			angle = normalizeRad(angle);
-			return [angle,1];
+			*/
+			var diffangle = normalizeRad(angle - b.angle);
+			return [diffangle,1];
 		}
-
 		
 	}
 
@@ -260,7 +262,7 @@ function updateBoids() {
 		var rules = [col,sep,ali,coh];
 		var accumilator = 0;
 		var angleSum = 0;
-		// Calculate the accumilated angle from the three rules
+		// Calculate the accumilated angle from the three+one rules
 		for (var j = 0; j < rules.length; j++) {
 			var angle = rules[j][0];
 			var weight = rules[j][1];
@@ -296,23 +298,48 @@ function draw() {
 	drawWalls();
 }
 
-
-for (var i = 0; i < 100; i++) {
+// --- SPAWN BOIDS ---
+// Spawn random boids
+for (var i = 0; i < 200; i++) {
 	boids.push(new Boid(Math.random() * canvas.width, Math.random() * canvas.height
 						, Math.random() * Math.PI * 2))
 }
 
-var iId = setInterval(draw,10);
+// --- SPAWN WALLS ----
+// Wall cage
+/*
+createWall(300,300,500,100);
+createWall(500,100,700,100);
+createWall(700,100,900,500);
+createWall(900,500,500,800);
+createWall(500,800,300,300);
+*/
 
-//createWall(500, 200, 500, 600);
-/*createWall(300,300,300,500);
+
+// Wall box
+/*
+createWall(300,300,300,500);
 createWall(300,500,500,500);
 createWall(500,500,500,300);
 createWall(500,300,300,300);
 */
 
+// Wall at edges
 /*
 createWall(0,0,canvas.width,0);
 createWall(canvas.width,0,canvas.width,canvas.height);
 createWall(canvas.width,canvas.height,0,canvas.height);
-createWall(0,canvas.height,0,0);*/
+createWall(0,canvas.height,0,0);
+*/
+
+// Random walls
+for (var i = 0; i < 10; i++) {
+	var xDiff = Math.random() * 200 * (Math.random() > 0.5 ? 1:-1);
+	var yDiff = Math.random() * 200 * (Math.random() > 0.5 ? 1:-1);
+	var x = Math.random() * canvas.width;
+	var y = Math.random() * canvas.height;
+	createWall(x,y,x+xDiff,y+yDiff);
+}
+
+// --- Start simulation ---
+var iId = setInterval(draw,10);
