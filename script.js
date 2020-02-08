@@ -12,13 +12,14 @@ var boidViewingDist = 100;
 var boidMaxTurn = 0.05; // 0.05
 var boidMaxSpeed = 0.75; // 0.5
 
-// Margins for the wall-loop
+// Margins for the wall-looparound
 var marg = 10;
 
 // --- Init. variables ---
 var mouseX = 0;
 var mouseY = 0;
 var boids = [];
+var walls = [];
 
 
 // --- Code ---
@@ -67,6 +68,17 @@ function drawBoids() {
 	}
 }
 
+function drawWalls() {
+	for (var i = 0; i < walls.length; i++) {
+		var w = walls[i];
+		
+		ctx.beginPath();
+		ctx.moveTo(w[0], w[1]);
+		ctx.lineTo(w[2], w[3]);
+		ctx.stroke();
+	}
+}
+
 function wallLoop(b) {
 	if (b.x > canvas.width + marg) {
 		b.x = -marg;
@@ -110,6 +122,21 @@ function detectNeighbors(boid) {
 	return neighbors;
 }
 
+/*	returns true if the line from (a,b)->(c,d) intersects with (p,q)->(r,s)
+	https://stackoverflow.com/questions/9043805/test-if-two-lines-intersect-javascript-function 
+*/
+ function intersects(a,b,c,d,p,q,r,s) {
+	var det, gamma, lambda;
+	det = (c - a) * (s - q) - (r - p) * (d - b);
+	if (det === 0) {
+		return false;
+	} else {
+		lambda = ((s - q) * (r - a) + (p - r) * (s - b)) / det;
+		gamma = ((b - d) * (r - a) + (c - a) * (s - b)) / det;
+		return (0 < lambda && lambda < 1) && (0 < gamma && gamma < 1);
+	}
+};
+
 function drawNeighbors(boid, neighbors) {
 	for (var i = 0; i < neighbors.length; i++) {
 		var neigh = neighbors[i];
@@ -118,6 +145,10 @@ function drawNeighbors(boid, neighbors) {
 		ctx.lineTo(neigh.x, neigh.y);
 		ctx.stroke();
 	}
+}
+
+function createWall(x1,y1,x2,y2) {
+	walls.push([x1,y1,x2,y2]);
 }
 
 function separation(boid, neighbors) {
@@ -173,6 +204,46 @@ function cohesion(boid, neighbors) {
 	return [angle,weight];
 }
 
+function collision(b) {
+
+	for (var i = 0; i < 75; i++) {
+		var angle = b.angle + Math.PI * 0.01 * i * (i % 2 == 0 ? 1 : -1); 
+		angle = normalizeRad(angle)
+		var x2 = b.x + Math.cos(angle)*boidViewingDist;
+		var y2 = b.y - Math.sin(angle)*boidViewingDist;
+
+		var collisionDetected = false;
+
+		for (var j = 0; j < walls.length; j++) {
+			var w = walls[j];
+			if(intersects(w[0],w[1],w[2],w[3],b.x,b.y,x2,y2) == true) {
+				collisionDetected = true;
+				break;
+			}
+		}
+		if(!collisionDetected && i == 0) {
+			return [0,0];
+		}
+
+		
+
+		if(!collisionDetected) {
+			// Draw selected ray
+			/*
+			ctx.beginPath();
+			ctx.moveTo(b.x,b.y);
+			ctx.lineTo(x2, y2);
+			ctx.stroke();
+			*/
+			var diffangle = normalizeRad(angle - b.angle);
+			return [diffangle,1];
+		}
+		
+	}
+
+	return [0,0];
+}
+
 function updateBoids() {
 	for (var i = 0; i < boids.length; i++) {
 		var b = boids[i];
@@ -183,18 +254,19 @@ function updateBoids() {
 
 		//drawNeighbors(b,neigh);
 
+		var col = collision(b);
 		var sep = separation(b, neigh);
 		var ali = alignment(b, neigh);
 		var coh = cohesion(b, neigh);
 
-		var rules = [sep,ali,coh];
+		var rules = [col,sep,ali,coh];
 		var accumilator = 0;
 		var angleSum = 0;
-		// Calculate the accumilated angle from the three rules
+		// Calculate the accumilated angle from the three+one rules
 		for (var j = 0; j < rules.length; j++) {
 			var angle = rules[j][0];
 			var weight = rules[j][1];
-			
+
 			// Trim weight if accumilator gets full, also prepare to break.
 			if (accumilator + weight >= 1) {
 				weight = 1 - accumilator;
@@ -223,12 +295,51 @@ function draw() {
 	ctx.clearRect(0, 0, canvas.width, canvas.height);
 	updateBoids();
 	drawBoids();
+	drawWalls();
 }
 
-
-for (var i = 0; i < 100; i++) {
+// --- SPAWN BOIDS ---
+// Spawn random boids
+for (var i = 0; i < 200; i++) {
 	boids.push(new Boid(Math.random() * canvas.width, Math.random() * canvas.height
 						, Math.random() * Math.PI * 2))
 }
 
+// --- SPAWN WALLS ----
+// Wall cage
+/*
+createWall(300,300,500,100);
+createWall(500,100,700,100);
+createWall(700,100,900,500);
+createWall(900,500,500,800);
+createWall(500,800,300,300);
+*/
+
+
+// Wall box
+/*
+createWall(300,300,300,500);
+createWall(300,500,500,500);
+createWall(500,500,500,300);
+createWall(500,300,300,300);
+*/
+
+// Wall at edges
+/*
+createWall(0,0,canvas.width,0);
+createWall(canvas.width,0,canvas.width,canvas.height);
+createWall(canvas.width,canvas.height,0,canvas.height);
+createWall(0,canvas.height,0,0);
+*/
+
+// Random walls
+for (var i = 0; i < 10; i++) {
+	var xDiff = Math.random() * 200 * (Math.random() > 0.5 ? 1:-1);
+	var yDiff = Math.random() * 200 * (Math.random() > 0.5 ? 1:-1);
+	var x = Math.random() * canvas.width;
+	var y = Math.random() * canvas.height;
+	createWall(x,y,x+xDiff,y+yDiff);
+}
+
+// --- Start simulation ---
 var iId = setInterval(draw,10);
