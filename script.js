@@ -253,6 +253,7 @@ function drawStats(col,sep,ali,coh) {
 
 		if(sum + temp[i] >= 1) {
 			result[i] = 1 - sum;
+			sum = 1;
 			break;
 		}
 
@@ -280,7 +281,8 @@ function drawStats(col,sep,ali,coh) {
 	ctx.fillText("Sep", canvas.width-barWidth*2.7, canvas.height-barHeightMax-10);
 	ctx.fillText("Ali", canvas.width-barWidth*1.7, canvas.height-barHeightMax-10);
 	ctx.fillText("Coh", canvas.width-barWidth*0.7, canvas.height-barHeightMax-10);
-
+	ctx.fillText(Math.round(sum * 100) / 100, canvas.width-barWidth*4.5, canvas.height-barHeightMax/2);
+	
 
 	// Draw UI border
 	ctx.beginPath()
