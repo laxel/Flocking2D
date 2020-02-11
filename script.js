@@ -6,14 +6,15 @@ ctx.canvas.height = window.innerHeight;
 // --- Parameters ---
 
 var showStats = true;
+var scale = 1;
 
 // Boids
-var boidSize = 15; // 20
+var boidSize = 15 * scale; // 20
 var boidAngle = 0.2 * Math.PI;
 var boidViewingAngle = 0.8 * Math.PI; // 0.8
-var boidViewingDist = 100;
-var boidMaxTurn = 0.05; // 0.05
-var boidMaxSpeed = 0.75; // 0.5
+var boidViewingDist = 100*scale;
+var boidMaxTurn = 0.05*1/scale; // 0.05
+var boidMaxSpeed = 1*scale; // 0.5
 
 // Margins for the wall-looparound
 var marg = 10;
@@ -351,20 +352,21 @@ function draw() {
 
 // --- SPAWN BOIDS ---
 // Spawn random boids
-for (var i = 0; i < 100; i++) {
-	boids.push(new Boid(Math.random() * canvas.width, Math.random() * canvas.height
-						, Math.random() * Math.PI * 2))
+for (var i = 0; i < 150; i++) {
+	boids.push(new Boid(Math.random() * canvas.width, 
+						Math.random() * canvas.height,
+						Math.random() * Math.PI * 2))
 }
 
 // --- SPAWN WALLS ----
 // Wall cage
-
+/*
 createWall(300,300,500,100);
 createWall(500,100,700,100);
 createWall(700,100,900,500);
 createWall(900,500,500,800);
 createWall(500,800,300,300);
-
+*/
 
 
 // Wall box
@@ -384,15 +386,15 @@ createWall(0,canvas.height,0,0);
 */
 
 // Random walls
-/*
+
 for (var i = 0; i < 10; i++) {
-	var xDiff = Math.random() * 200 * (Math.random() > 0.5 ? 1:-1);
-	var yDiff = Math.random() * 200 * (Math.random() > 0.5 ? 1:-1);
+	var xDiff = Math.random() * 300 * (Math.random() > 0.5 ? 1:-1);
+	var yDiff = Math.random() * 300 * (Math.random() > 0.5 ? 1:-1);
 	var x = Math.random() * canvas.width;
 	var y = Math.random() * canvas.height;
 	createWall(x,y,x+xDiff,y+yDiff);
 }
-*/
+
 
 // --- Start simulation ---
 var iId = setInterval(draw,10);
