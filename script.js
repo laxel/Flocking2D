@@ -2,11 +2,14 @@ var canvas = document.getElementById("myCanvas");
 var ctx = canvas.getContext("2d");
 ctx.canvas.width  = window.innerWidth;
 ctx.canvas.height = window.innerHeight;
+var filterStrength = 20;
+var frameTime = 0, lastLoop = new Date, thisLoop;
+var fps = 0;
 
 // --- Parameters ---
 
-var showStats = true;
-var scale = 1;
+var showStats = false;
+var scale = 0.25;
 
 // Boids
 var boidSize = 15 * scale; // 20
@@ -343,16 +346,29 @@ function updateBoids() {
 	}
 }
 
+function manageFps() {
+	var thisFrameTime = (thisLoop=new Date) - lastLoop;
+	frameTime+= (thisFrameTime - frameTime) / filterStrength;
+	lastLoop = thisLoop;
+	ctx.fillText(fps + " fps", 10, 50);
+
+}
+
+setInterval(function(){
+	fps = (1000/frameTime).toFixed(1);
+  },500);
+
 function draw() {
 	ctx.clearRect(0, 0, canvas.width, canvas.height);
 	updateBoids();
 	drawBoids();
 	drawWalls();
+	manageFps();
 }
 
 // --- SPAWN BOIDS ---
 // Spawn random boids
-for (var i = 0; i < 150; i++) {
+for (var i = 0; i < 1000; i++) {
 	boids.push(new Boid(Math.random() * canvas.width, 
 						Math.random() * canvas.height,
 						Math.random() * Math.PI * 2))
@@ -387,7 +403,7 @@ createWall(0,canvas.height,0,0);
 
 // Random walls
 
-for (var i = 0; i < 10; i++) {
+for (var i = 0; i < 0; i++) {
 	var xDiff = Math.random() * 300 * (Math.random() > 0.5 ? 1:-1);
 	var yDiff = Math.random() * 300 * (Math.random() > 0.5 ? 1:-1);
 	var x = Math.random() * canvas.width;
