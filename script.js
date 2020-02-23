@@ -5,11 +5,19 @@ ctx.canvas.height = window.innerHeight;
 var filterStrength = 20;
 var frameTime = 0, lastLoop = new Date, thisLoop;
 var fps = 0;
+var grid = [];
+
+var cellWidth = 100;
+var cellHeight = 100;
+
+var numCellHori = Math.ceil(canvas.width / cellWidth);
+var numCellVerti = Math.ceil(canvas.height / cellHeight);
 
 // --- Parameters ---
 
 var showStats = false;
-var scale = 0.25;
+var scale = 0.4;
+var partitioning = false;
 
 // Boids
 var boidSize = 15 * scale; // 20
@@ -124,6 +132,49 @@ function detectNeighbors(boid) {
 		
 	}
 	return neighbors;
+}
+
+function buildPartitioning() {
+	grid = []
+
+	boids.forEach(b => {
+		var index = Math.round(b.x * numCellHori / canvas.width) + Math.round(b.y * numCellVerti / canvas.height) * numCellHori;
+		if (grid[index] == null) grid[index] = [];
+		grid[index].push(b);
+	});
+}
+
+function dnPartitioning(boid) {
+	var xIndex = Math.round(boid.x * numCellHori / canvas.width);
+	var yIndex = Math.round(boid.x * numCellVerti / canvas.height);
+	var offset = [
+		[-1,-1 ],   [-1,0 ],    [-1,1 ],
+		[ 0,-1 ],   [ 0,0 ],    [ 0,1 ],
+		[ 1,-1 ],   [ 1,0 ],    [ 1,1 ]
+	];
+
+	var radiussquared = boidViewingDist*boidViewingDist;
+	var result = [];
+	offset.forEach(offset => {
+		var tempXIndex = xIndex + offset[1];
+		var tempYIndex = yIndex + offset[0];
+
+		if (tempXIndex < 0 || tempXIndex >= numCellHori) return;
+		if (tempYIndex < 0 || tempYIndex >= numCellVerti) return;
+
+		var index = tempXIndex + tempYIndex * numCellHori;
+
+		if (grid[index] == null || grid[index].length == 0) return;
+
+		grid[index].forEach(searchBoid => {
+			if(searchBoid == boid) return;
+			if(Math.pow(boid.x - searchBoid.x,2) + Math.pow(boid.y - searchBoid.y,2) < radiussquared) {
+				result.push(searchBoid);
+			}
+		});
+
+	});
+	return result;
 }
 
 /*	returns true if the line from (a,b)->(c,d) intersects with (p,q)->(r,s)
@@ -302,7 +353,12 @@ function updateBoids() {
 		
 		wallLoop(b);
 		
-		var neigh = detectNeighbors(b);
+		var neigh;
+		if(partitioning) {
+			neigh = dnPartitioning(b);
+		} else {
+			neigh = detectNeighbors(b);
+		}
 
 		//drawNeighbors(b,neigh);
 
@@ -360,6 +416,7 @@ setInterval(function(){
 
 function draw() {
 	ctx.clearRect(0, 0, canvas.width, canvas.height);
+	if(partitioning) buildPartitioning();
 	updateBoids();
 	drawBoids();
 	drawWalls();
@@ -368,7 +425,7 @@ function draw() {
 
 // --- SPAWN BOIDS ---
 // Spawn random boids
-for (var i = 0; i < 1000; i++) {
+for (var i = 0; i < 500; i++) {
 	boids.push(new Boid(Math.random() * canvas.width, 
 						Math.random() * canvas.height,
 						Math.random() * Math.PI * 2))
@@ -403,7 +460,7 @@ createWall(0,canvas.height,0,0);
 
 // Random walls
 
-for (var i = 0; i < 0; i++) {
+for (var i = 0; i < 10; i++) {
 	var xDiff = Math.random() * 300 * (Math.random() > 0.5 ? 1:-1);
 	var yDiff = Math.random() * 300 * (Math.random() > 0.5 ? 1:-1);
 	var x = Math.random() * canvas.width;
