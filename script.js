@@ -17,7 +17,7 @@ var numCellVerti = Math.ceil(canvas.height / cellHeight);
 
 // --- Parameters ---
 
-var showStats = true;
+var showStats = false;
 var scale = 0.6;
 var partitioning = false;
 
@@ -35,8 +35,9 @@ var marg = 10;
 // --- Init. variables ---
 var mouseX = 0;
 var mouseY = 0;
-var boids = [];
+var boid_groups = [];
 var walls = [];
+var colors = ["black","red","green","blue"];
 
 // --- Code ---
 
@@ -47,39 +48,43 @@ canvas.onmousemove = function(e) {
 };
 
 function drawBoids() {
-	for (var i = 0; i < boids.length; i++) {
-		var boid = boids[i];
-
-		var x = boid.x;
-		var y = boid.y;
-		var angle = boid.angle;
-
-		var x1 = x + (boidSize / 2) * Math.cos(angle);
-		var y1 = y - (boidSize / 2) * Math.sin(angle);
-
-		var toBackLength = Math.sqrt(
-			Math.pow(Math.tan(boidAngle / 2) * boidSize, 2) +
-				Math.pow(boidSize / 2, 2)
-		);
-
-		var x2 = x + toBackLength * Math.cos(Math.PI - (boidAngle - angle));
-		var y2 = y - toBackLength * Math.sin(Math.PI - (boidAngle - angle));
-
-		var x3 = x - (boidSize / 4) * Math.cos(angle);
-		var y3 = y + (boidSize / 4) * Math.sin(angle);
-
-		var x4 = x + toBackLength * Math.cos(Math.PI + (boidAngle + angle));
-		var y4 = y - toBackLength * Math.sin(Math.PI + (boidAngle + angle));
-
-		ctx.beginPath();
-		ctx.moveTo(x1, y1);
-		ctx.lineTo(x2, y2);
-		ctx.lineTo(x3, y3);
-		ctx.lineTo(x4, y4);
-		ctx.closePath();
-		ctx.fillStyle = i == 0 && showStats == true ? "red" : "black";
-		ctx.fill();
+	for (var t = 0; t < boid_groups.length; t++) {
+		boids = boid_groups[t];
+		for (var i = 0; i < boids.length; i++) {
+			var boid = boids[i];
+	
+			var x = boid.x;
+			var y = boid.y;
+			var angle = boid.angle;
+	
+			var x1 = x + (boidSize / 2) * Math.cos(angle);
+			var y1 = y - (boidSize / 2) * Math.sin(angle);
+	
+			var toBackLength = Math.sqrt(
+				Math.pow(Math.tan(boidAngle / 2) * boidSize, 2) +
+					Math.pow(boidSize / 2, 2)
+			);
+	
+			var x2 = x + toBackLength * Math.cos(Math.PI - (boidAngle - angle));
+			var y2 = y - toBackLength * Math.sin(Math.PI - (boidAngle - angle));
+	
+			var x3 = x - (boidSize / 4) * Math.cos(angle);
+			var y3 = y + (boidSize / 4) * Math.sin(angle);
+	
+			var x4 = x + toBackLength * Math.cos(Math.PI + (boidAngle + angle));
+			var y4 = y - toBackLength * Math.sin(Math.PI + (boidAngle + angle));
+	
+			ctx.beginPath();
+			ctx.moveTo(x1, y1);
+			ctx.lineTo(x2, y2);
+			ctx.lineTo(x3, y3);
+			ctx.lineTo(x4, y4);
+			ctx.closePath();
+			ctx.fillStyle = i == 0 && showStats == true ? "purple" : colors[t];
+			ctx.fill();
+		}
 	}
+	
 }
 
 function drawWalls() {
@@ -118,11 +123,11 @@ function normalizeRad(angle) {
 	return angle;
 }
 
-function detectNeighbors(boid) {
+function detectNeighbors(boid, boid_list) {
 	var neighbors = [];
-	for (var i = 0; i < boids.length; i++) {
+	for (var i = 0; i < boid_list.length; i++) {
 		var b1 = boid;
-		var b2 = boids[i];
+		var b2 = boid_list[i];
 		if (b1 == b2) {
 			continue;
 		}
@@ -143,7 +148,7 @@ function detectNeighbors(boid) {
 function buildPartitioning() {
 	grid = [];
 
-	boids.forEach(b => {
+	boid_groups.forEach(b => {
 		var index =
 			Math.round((b.x * numCellHori) / canvas.width) +
 			Math.round((b.y * numCellVerti) / canvas.height) * numCellHori;
@@ -389,57 +394,60 @@ function drawStats(col, sep, ali, coh) {
 }
 
 function updateBoids() {
-	for (var i = 0; i < boids.length; i++) {
-		var b = boids[i];
-
-		wallLoop(b);
-
-		var neigh;
-		if (partitioning) {
-			neigh = dnPartitioning(b);
-		} else {
-			neigh = detectNeighbors(b);
-		}
-
-		//drawNeighbors(b,neigh);
-
-		var col = collision(b);
-		var sep = separation(b, neigh);
-		var ali = alignment(b, neigh);
-		var coh = cohesion(b, neigh);
-
-		// Draw UI for the first boid and how it is effected by the rules
-		if (i == 0 && showStats) drawStats(col[1], sep[1], ali[1], coh[1]);
-
-		var rules = [col, sep, ali, coh];
-		var accumilator = 0;
-		var angleSum = 0;
-		// Calculate the accumilated angle from the three+one rules
-		for (var j = 0; j < rules.length; j++) {
-			var angle = rules[j][0];
-			var weight = rules[j][1];
-
-			// Trim weight if accumilator gets full, also prepare to break.
-			if (accumilator + weight >= 1) {
-				weight = 1 - accumilator;
-				accumilator += weight;
+	for (var t = 0; t < boid_groups.length; t++) {
+		boids = boid_groups[t];
+		for (var i = 0; i < boids.length; i++) {
+			var b = boids[i];
+	
+			wallLoop(b);
+	
+			var neigh;
+			if (partitioning) {
+				neigh = dnPartitioning(b);
 			} else {
-				accumilator += weight;
+				neigh = detectNeighbors(b, boids);
 			}
-
-			if (weight != 0) angleSum += (angle - angleSum) * weight;
-
-			if (accumilator > 1) break;
+	
+			//drawNeighbors(b,neigh);
+	
+			var col = collision(b);
+			var sep = separation(b, neigh);
+			var ali = alignment(b, neigh);
+			var coh = cohesion(b, neigh);
+	
+			// Draw UI for the first boid and how it is effected by the rules
+			if (i == 0 && showStats) drawStats(col[1], sep[1], ali[1], coh[1]);
+	
+			var rules = [col, sep, ali, coh];
+			var accumilator = 0;
+			var angleSum = 0;
+			// Calculate the accumilated angle from the three+one rules
+			for (var j = 0; j < rules.length; j++) {
+				var angle = rules[j][0];
+				var weight = rules[j][1];
+	
+				// Trim weight if accumilator gets full, also prepare to break.
+				if (accumilator + weight >= 1) {
+					weight = 1 - accumilator;
+					accumilator += weight;
+				} else {
+					accumilator += weight;
+				}
+	
+				if (weight != 0) angleSum += (angle - angleSum) * weight;
+	
+				if (accumilator > 1) break;
+			}
+	
+			if (angleSum > boidMaxTurn) angleSum = boidMaxTurn;
+			if (angleSum < -boidMaxTurn) angleSum = -boidMaxTurn;
+	
+			b.angle += angleSum;
+			b.angle = normalizeRad(b.angle);
+	
+			b.x += boidMaxSpeed * Math.cos(b.angle);
+			b.y -= boidMaxSpeed * Math.sin(b.angle);
 		}
-
-		if (angleSum > boidMaxTurn) angleSum = boidMaxTurn;
-		if (angleSum < -boidMaxTurn) angleSum = -boidMaxTurn;
-
-		b.angle += angleSum;
-		b.angle = normalizeRad(b.angle);
-
-		b.x += boidMaxSpeed * Math.cos(b.angle);
-		b.y -= boidMaxSpeed * Math.sin(b.angle);
 	}
 }
 
@@ -465,8 +473,9 @@ function draw() {
 
 // --- SPAWN BOIDS ---
 // Spawn random boids
-for (var i = 0; i < 500; i++) {
-	boids.push(
+var temp = []
+for (var i = 0; i < 200; i++) {
+	temp.push(
 		new Boid(
 			Math.random() * canvas.width,
 			Math.random() * canvas.height,
@@ -474,6 +483,31 @@ for (var i = 0; i < 500; i++) {
 		)
 	);
 }
+boid_groups.push(temp);
+
+var temp2 = []
+for (var i = 0; i < 200; i++) {
+	temp2.push(
+		new Boid(
+			Math.random() * canvas.width,
+			Math.random() * canvas.height,
+			Math.random() * Math.PI * 2
+		)
+	);
+}
+boid_groups.push(temp2);
+
+var temp3 = []
+for (var i = 0; i < 100; i++) {
+	temp3.push(
+		new Boid(
+			Math.random() * canvas.width,
+			Math.random() * canvas.height,
+			Math.random() * Math.PI * 2
+		)
+	);
+}
+boid_groups.push(temp3);
 
 // --- SPAWN WALLS ----
 // Wall cage
